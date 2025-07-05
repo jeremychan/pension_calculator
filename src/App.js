@@ -69,8 +69,8 @@ const App = () => {
 
     // Calculate tapered annual allowance based on UK rules by year
     const calculateTaperedAllowance = useCallback((thresholdIncome, adjustedIncome, year) => {
-        const threshold = parseFloat(thresholdIncome) || 0;
-        const adjusted = parseFloat(adjustedIncome) || 0;
+        const threshold = Math.round(parseFloat(thresholdIncome) || 0);
+        const adjusted = Math.round(parseFloat(adjustedIncome) || 0);
 
         const yearInt = parseInt(year);
         const rules = pensionRules[yearInt] || pensionRules[2025]; // Default to latest rules
@@ -89,9 +89,9 @@ const App = () => {
 
         // Reset carry forward calculations
         processedYears.forEach(year => {
-            const contribution = parseFloat(year.contribution) || 0;
-            year.shortfall = Math.max(0, contribution - year.taperedAllowance);
-            year.carryForwardAvailable = Math.max(0, year.taperedAllowance - contribution);
+            const contribution = Math.round(parseFloat(year.contribution) || 0);
+            year.shortfall = Math.round(Math.max(0, contribution - year.taperedAllowance));
+            year.carryForwardAvailable = Math.round(Math.max(0, year.taperedAllowance - contribution));
             year.carryForwardUsed = 0;
             year.carryForwardRemaining = year.carryForwardAvailable;
             year.carryForwardBreakdown = []; // What this year used FROM previous years
@@ -118,7 +118,7 @@ const App = () => {
                     availableFromPrevious += prevYear.carryForwardRemaining;
                 }
             }
-            currentYear.carryForwardAvailableFromPrevious = availableFromPrevious;
+            currentYear.carryForwardAvailableFromPrevious = Math.round(availableFromPrevious);
 
             if (remainingShortfall > 0) {
                 // Use carry forward from up to 3 previous years (oldest first: Y-3, Y-2, Y-1)
@@ -181,7 +181,7 @@ const App = () => {
                 }
             }
 
-            currentYear.canUseThisYear = totalCanUse + availableCarryForward;
+            currentYear.canUseThisYear = Math.round(totalCanUse + availableCarryForward);
             currentYear.missingYearWarning = missingYears.length > 0;
             currentYear.missingYears = missingYears;
         }
@@ -264,9 +264,9 @@ const App = () => {
         return new Intl.NumberFormat('en-GB', {
             style: 'currency',
             currency: 'GBP',
-            minimumFractionDigits: 1,
-            maximumFractionDigits: 1
-        }).format(amount);
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(Math.round(amount || 0));
     };
 
     // Get amount class for styling
@@ -278,7 +278,7 @@ const App = () => {
 
     // Check if contribution exceeds total allowance
     const isOverContribution = (year) => {
-        const contribution = parseFloat(year.contribution) || 0;
+        const contribution = Math.round(parseFloat(year.contribution) || 0);
         return contribution > year.canUseThisYear;
     };
 
@@ -371,10 +371,10 @@ const App = () => {
         let tooltip = `${year.taxYear} Carry Forward to Next Years:\n\n`;
         tooltip += `Calculation:\n`;
         tooltip += `Tapered Allowance: ${formatCurrency(year.taperedAllowance)}\n`;
-        tooltip += `Contribution: ${formatCurrency(parseFloat(year.contribution) || 0)}\n`;
+        tooltip += `Contribution: ${formatCurrency(Math.round(parseFloat(year.contribution) || 0))}\n`;
 
-        const rawCalculation = year.taperedAllowance - (parseFloat(year.contribution) || 0);
-        const contribution = parseFloat(year.contribution) || 0;
+        const rawCalculation = year.taperedAllowance - Math.round(parseFloat(year.contribution) || 0);
+        const contribution = Math.round(parseFloat(year.contribution) || 0);
 
         if (rawCalculation >= 0) {
             tooltip += `Carry Forward Available: ${formatCurrency(year.carryForwardAvailable)}\n`;
@@ -416,9 +416,9 @@ const App = () => {
         return tooltip.trim();
     };
 
-    // Generate tooltip content for "Total Allowance Including Carry Forward"
+    // Generate tooltip content for "Total Allowance"
     const getTotalAllowanceTooltip = (year) => {
-        let tooltip = `Total Allowance Including Carry Forward for ${year.taxYear}:\n\n`;
+        let tooltip = `Total Allowance for ${year.taxYear}:\n\n`;
         tooltip += `Current Year Allowance: ${formatCurrency(year.taperedAllowance)}\n\n`;
 
         // Create array of previous 3 years with amounts available when this year was processed
@@ -507,7 +507,7 @@ const App = () => {
                             <th>Shortfall</th>
                             <th>Carry Forward Available from Previous 3 Years (Used)</th>
                             <th>Carry Forward to Next Years (Remaining)</th>
-                            <th>Total Allowance Including Carry Forward</th>
+                            <th>Total Allowance (Unused)</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -588,25 +588,31 @@ const App = () => {
                                         </div>
                                     </td>
                                     <td>
-                                        <span className={`${isOverContribution(year) ? 'amount-negative' : getAmountClass(year.canUseThisYear)}`}>
-                                            {formatCurrency(year.canUseThisYear)}
-                                            {year.missingYearWarning && (
-                                                <span className="tooltip" style={{ marginLeft: '5px' }}>
-                                                    <span style={{ color: '#ff9800', cursor: 'help' }}>⚠️</span>
-                                                    <div className="tooltip-content">
-                                                        Missing years: {year.missingYears.map(y => `${y}/${String(y + 1).slice(-2)}`).join(', ')}. Assuming £0 carry forward from missing years.
-                                                    </div>
-                                                </span>
-                                            )}
-                                            {isOverContribution(year) && (
-                                                <span className="tooltip" style={{ marginLeft: '5px' }}>
-                                                    <span style={{ color: '#f44336', cursor: 'help' }}>🚨</span>
-                                                    <div className="tooltip-content">
-                                                        Contribution ({formatCurrency(parseFloat(year.contribution) || 0)}) exceeds total allowance ({formatCurrency(year.canUseThisYear)}). Excess contribution: {formatCurrency((parseFloat(year.contribution) || 0) - year.canUseThisYear)}
-                                                    </div>
-                                                </span>
-                                            )}
-                                        </span>
+                                        <div>
+                                            <span className={`${isOverContribution(year) ? 'amount-negative' : getAmountClass(year.canUseThisYear)}`}>
+                                                {formatCurrency(year.canUseThisYear)}
+                                                {year.missingYearWarning && (
+                                                    <span className="tooltip" style={{ marginLeft: '5px' }}>
+                                                        <span style={{ color: '#ff9800', cursor: 'help' }}>⚠️</span>
+                                                        <div className="tooltip-content">
+                                                            Missing years: {year.missingYears.map(y => `${y}/${String(y + 1).slice(-2)}`).join(', ')}. Assuming £0 carry forward from missing years.
+                                                        </div>
+                                                    </span>
+                                                )}
+                                                {isOverContribution(year) && (
+                                                    <span className="tooltip" style={{ marginLeft: '5px' }}>
+                                                        <span style={{ color: '#f44336', cursor: 'help' }}>🚨</span>
+                                                        <div className="tooltip-content">
+                                                            Contribution ({formatCurrency(Math.round(parseFloat(year.contribution) || 0))}) exceeds total allowance ({formatCurrency(year.canUseThisYear)}). Excess contribution: {formatCurrency(Math.round(parseFloat(year.contribution) || 0) - year.canUseThisYear)}
+                                                        </div>
+                                                    </span>
+                                                )}
+                                            </span>
+                                            <br />
+                                            <span style={{ color: '#666', fontSize: '0.9em' }}>
+                                                ({formatCurrency(year.canUseThisYear - Math.round(parseFloat(year.contribution) || 0))})
+                                            </span>
+                                        </div>
                                     </td>
                                     <td>
                                         {years.length > 1 && (
