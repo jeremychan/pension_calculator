@@ -7,8 +7,8 @@
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     line-height: 1.6;
-    color: #1a202c;
-    background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+    color: #2d3748;
+    background-color: #f7fafc;
     min-height: 100vh;
 }
 
@@ -16,49 +16,31 @@ body {
     max-width: 1600px;
     margin: 0 auto;
     padding: 2rem;
-    background-color: transparent;
-    min-height: 100vh;
+    background-color: #ffffff;
+    border-radius: 24px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
+    margin-top: 2rem;
+    margin-bottom: 2rem;
 }
 
 .header {
-    text-align: center;
-    margin-bottom: 3rem;
-    padding: 3rem 2rem;
-    background: linear-gradient(135deg, #4299e1 0%, #3182ce 50%, #2b77cb 100%);
-    color: white;
-    border-radius: 24px;
-    box-shadow: 0 20px 40px rgba(66, 153, 225, 0.15);
-    position: relative;
-    overflow: hidden;
-}
-
-.header::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
-    pointer-events: none;
+    text-align: left;
+    margin-bottom: 2rem;
+    padding: 1rem 0;
+    border-bottom: 2px solid #e2e8f0;
 }
 
 .header h1 {
-    margin: 0 0 1rem 0;
-    font-size: 3rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    position: relative;
-    z-index: 1;
+    margin: 0 0 0.25rem 0;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1a202c;
 }
 
 .header p {
     margin: 0;
-    font-size: 1.25rem;
-    opacity: 0.95;
-    font-weight: 400;
-    position: relative;
-    z-index: 1;
+    font-size: 1rem;
+    color: #718096;
 }
 
 .controls {
@@ -67,60 +49,41 @@ body {
     gap: 1rem;
     align-items: center;
     flex-wrap: wrap;
-    justify-content: center;
+    justify-content: flex-start;
 }
 
 .btn {
-    padding: 0.875rem 1.5rem;
-    border: none;
-    border-radius: 12px;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid transparent;
+    border-radius: 8px;
     cursor: pointer;
     font-size: 0.875rem;
     font-weight: 600;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    position: relative;
-    overflow: hidden;
-}
-
-.btn::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-    transition: left 0.6s;
-}
-
-.btn:hover::before {
-    left: 100%;
+    text-transform: none;
+    letter-spacing: normal;
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    background-color: #2d3748;
     color: white;
-    box-shadow: 0 4px 15px rgba(66, 153, 225, 0.3);
+    border-color: #2d3748;
 }
 
 .btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(66, 153, 225, 0.4);
+    background-color: #4a5568;
+    border-color: #4a5568;
 }
 
 .btn-secondary {
-    background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+    background-color: #ffffff;
     color: #4a5568;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
     border: 1px solid #e2e8f0;
 }
 
 .btn-secondary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-    background: linear-gradient(135deg, #edf2f7 0%, #e2e8f0 100%);
+    background-color: #f7fafc;
+    border-color: #e2e8f0;
 }
 
 .table-container {
@@ -144,12 +107,12 @@ body {
 }
 
 .pension-table th {
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-    padding: 1rem 0.5rem;
+    background-color: #f8fafc;
+    padding: 1rem 0.75rem;
     text-align: left;
-    font-weight: 700;
-    color: #2d3748;
-    border-bottom: 2px solid #e2e8f0;
+    font-weight: 600;
+    color: #4a5568;
+    border-bottom: 1px solid #e2e8f0;
     position: sticky;
     top: 0;
     z-index: 10;
@@ -228,15 +191,15 @@ body {
 }
 
 .pension-table tr:hover td {
-    background-color: #f8fafc;
+    background-color: #f7fafc;
 }
 
 .pension-table tr:nth-child(even) td {
-    background-color: #fafbfc;
+    background-color: transparent;
 }
 
 .pension-table tr:nth-child(even):hover td {
-    background-color: #f1f5f9;
+    background-color: #f7fafc;
 }
 
 .input-field {

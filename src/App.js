@@ -1,4 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Helmet } from 'react-helmet-async';
+import { pensionRules, calculateTaperedAllowance, calculateCarryForward } from './pensionCalculator';
+
+const formatNumberWithCommas = (value) => {
+    if (value === null || value === undefined || value === '') return '';
+    const numberValue = String(value).replace(/,/g, '');
+    if (isNaN(parseFloat(numberValue))) return value;
+    const parts = numberValue.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return parts.join('.');
+};
+
+const parseFormattedNumber = (value) => {
+    return String(value).replace(/,/g, '');
+};
 
 const App = () => {
     const [years, setYears] = useState([]);
@@ -53,142 +68,6 @@ const App = () => {
         }
     }, [years]);
 
-    // UK Pension Rules by Tax Year
-    const pensionRules = {
-        2025: { standardAllowance: 60000, minimumAllowance: 10000, thresholdLimit: 200000, adjustedLimit: 260000 },
-        2024: { standardAllowance: 60000, minimumAllowance: 10000, thresholdLimit: 200000, adjustedLimit: 260000 },
-        2023: { standardAllowance: 60000, minimumAllowance: 10000, thresholdLimit: 200000, adjustedLimit: 260000 },
-        2022: { standardAllowance: 40000, minimumAllowance: 4000, thresholdLimit: 200000, adjustedLimit: 240000 },
-        2021: { standardAllowance: 40000, minimumAllowance: 4000, thresholdLimit: 200000, adjustedLimit: 240000 },
-        2020: { standardAllowance: 40000, minimumAllowance: 4000, thresholdLimit: 200000, adjustedLimit: 240000 },
-        2019: { standardAllowance: 40000, minimumAllowance: 10000, thresholdLimit: 110000, adjustedLimit: 150000 },
-        2018: { standardAllowance: 40000, minimumAllowance: 10000, thresholdLimit: 110000, adjustedLimit: 150000 },
-        2017: { standardAllowance: 40000, minimumAllowance: 10000, thresholdLimit: 110000, adjustedLimit: 150000 },
-        2016: { standardAllowance: 40000, minimumAllowance: 10000, thresholdLimit: 110000, adjustedLimit: 150000 }
-    };
-
-    // Calculate tapered annual allowance based on UK rules by year
-    const calculateTaperedAllowance = useCallback((thresholdIncome, adjustedIncome, year) => {
-        const threshold = Math.round(parseFloat(thresholdIncome) || 0);
-        const adjusted = Math.round(parseFloat(adjustedIncome) || 0);
-
-        const yearInt = parseInt(year);
-        const rules = pensionRules[yearInt] || pensionRules[2025]; // Default to latest rules
-
-        if (threshold <= rules.thresholdLimit || adjusted <= rules.adjustedLimit) {
-            return rules.standardAllowance;
-        }
-
-        const reduction = Math.floor((adjusted - rules.adjustedLimit) / 2);
-        return Math.max(rules.minimumAllowance, rules.standardAllowance - reduction);
-    }, []);
-
-    // Calculate carry forward for all years
-    const calculateCarryForward = useCallback((updatedYears) => {
-        const processedYears = [...updatedYears];
-
-        // Reset carry forward calculations
-        processedYears.forEach(year => {
-            const contribution = Math.round(parseFloat(year.contribution) || 0);
-            year.shortfall = Math.round(Math.max(0, contribution - year.taperedAllowance));
-            year.carryForwardAvailable = Math.round(Math.max(0, year.taperedAllowance - contribution));
-            year.carryForwardUsed = 0;
-            year.carryForwardRemaining = year.carryForwardAvailable;
-            year.carryForwardBreakdown = []; // What this year used FROM previous years
-            year.carryForwardUsedBreakdown = []; // What this year used FROM previous years (detailed)
-            year.carryForwardUsedByFuture = []; // What future years used FROM this year
-            year.canUseThisYear = year.taperedAllowance;
-            year.missingYearWarning = false;
-            year.originalCarryForward = year.carryForwardAvailable; // Store original amount before any is used
-            year.carryForwardAvailableFromPrevious = 0; // Store what was available from previous years when processing this year
-        });
-
-        // Process each year's shortfall using carry forward from previous years
-        for (let i = 0; i < processedYears.length; i++) {
-            const currentYear = processedYears[i];
-            let remainingShortfall = currentYear.shortfall;
-            const usedBreakdown = [];
-
-            // First, capture what carry forward is available from previous years for this year
-            let availableFromPrevious = 0;
-            for (let j = 1; j <= 3; j++) {
-                const prevIndex = i - j;
-                if (prevIndex >= 0) {
-                    const prevYear = processedYears[prevIndex];
-                    availableFromPrevious += prevYear.carryForwardRemaining;
-                }
-            }
-            currentYear.carryForwardAvailableFromPrevious = Math.round(availableFromPrevious);
-
-            if (remainingShortfall > 0) {
-                // Use carry forward from up to 3 previous years (oldest first: Y-3, Y-2, Y-1)
-                for (let j = 3; j >= 1 && remainingShortfall > 0; j--) {
-                    const prevIndex = i - j;
-                    if (prevIndex >= 0) {
-                        const prevYear = processedYears[prevIndex];
-                        const availableCarryForward = prevYear.carryForwardRemaining;
-                        const toUse = Math.min(remainingShortfall, availableCarryForward);
-
-                        if (toUse > 0) {
-                            // Don't modify prevYear.carryForwardUsed - that tracks what prevYear used from ITS previous years
-                            prevYear.carryForwardRemaining -= toUse;
-                            currentYear.carryForwardUsed += toUse;
-                            remainingShortfall -= toUse;
-
-                            // Track what current year used from previous years
-                            currentYear.carryForwardBreakdown.push({
-                                fromYear: prevYear.taxYear,
-                                amount: toUse,
-                                remainingAfter: prevYear.carryForwardRemaining
-                            });
-
-                            usedBreakdown.push({
-                                fromYear: prevYear.taxYear,
-                                amount: toUse,
-                                yearsAgo: j
-                            });
-
-                            // Track what future years used from this previous year
-                            prevYear.carryForwardUsedByFuture.push({
-                                usedByYear: currentYear.taxYear,
-                                amount: toUse
-                            });
-                        }
-                    }
-                }
-            }
-
-            currentYear.carryForwardUsedBreakdown = usedBreakdown;
-        }
-
-        // Calculate "Can Use This Year" for all years after carry forward processing is complete
-        for (let i = 0; i < processedYears.length; i++) {
-            const currentYear = processedYears[i];
-            let totalCanUse = currentYear.taperedAllowance;
-            let missingYears = [];
-
-            // Use the stored snapshot of available carry forward for this year
-            let availableCarryForward = currentYear.carryForwardAvailableFromPrevious || 0;
-
-            // Check for missing years to set warning
-            for (let j = 1; j <= 3; j++) {
-                const prevIndex = i - j;
-                const expectedYear = currentYear.id - j;
-
-                if (!(prevIndex >= 0 && processedYears[prevIndex].id === expectedYear)) {
-                    // Year is missing
-                    missingYears.push(expectedYear);
-                }
-            }
-
-            currentYear.canUseThisYear = Math.round(totalCanUse + availableCarryForward);
-            currentYear.missingYearWarning = missingYears.length > 0;
-            currentYear.missingYears = missingYears;
-        }
-
-        return processedYears;
-    }, []);
-
     // Update a specific field for a year
     const updateYear = useCallback((yearId, field, value) => {
         setYears(prevYears => {
@@ -212,7 +91,7 @@ const App = () => {
 
             return calculateCarryForward(updatedYears);
         });
-    }, [calculateTaperedAllowance, calculateCarryForward]);
+    }, []);
 
     // Add a new year (either future or past)
     const addYear = useCallback((yearType = 'future') => {
@@ -251,13 +130,13 @@ const App = () => {
                 : [newYear, ...prevYears];
             return calculateCarryForward(newYears.sort((a, b) => a.id - b.id));
         });
-    }, [years, calculateCarryForward]);
+    }, [years]);
 
     // Remove a year
     const removeYear = useCallback((yearId) => {
         if (years.length <= 1) return; // Keep at least one year
         setYears(prevYears => calculateCarryForward(prevYears.filter(year => year.id !== yearId)));
-    }, [years.length, calculateCarryForward]);
+    }, [years.length]);
 
     // Format currency
     const formatCurrency = (amount) => {
@@ -477,9 +356,14 @@ const App = () => {
 
     return (
         <div className="app">
+            <Helmet>
+                <html lang="en" />
+                <title>UK Pension Tapered Annual Allowance Calculator</title>
+                <meta name="description" content="An advanced UK pension calculator to determine your tapered annual allowance and carry-forward amounts. Easily calculate your pension contributions and allowances." />
+                <meta name="keywords" content="pension calculator, uk pension, tapered annual allowance, carry forward, pension contribution, tax calculator" />
+            </Helmet>
             <div className="header">
                 <h1>UK Pension Calculator</h1>
-                <p>Calculate your tapered annual allowance and carry forward with ease</p>
             </div>
 
             <div className="controls">
@@ -527,20 +411,32 @@ const App = () => {
                                     <td><strong>{year.taxYear}</strong></td>
                                     <td>
                                         <input
-                                            type="number"
+                                            type="text"
+                                            inputMode="numeric"
                                             className="input-field"
-                                            value={year.thresholdIncome}
-                                            onChange={(e) => updateYear(year.id, 'thresholdIncome', e.target.value)}
-                                            placeholder="200000"
+                                            value={formatNumberWithCommas(year.thresholdIncome)}
+                                            onChange={(e) => {
+                                                const parsedValue = parseFormattedNumber(e.target.value);
+                                                if (/^\d*\.?\d*$/.test(parsedValue) || parsedValue === '') {
+                                                    updateYear(year.id, 'thresholdIncome', parsedValue);
+                                                }
+                                            }}
+                                            placeholder="200,000"
                                         />
                                     </td>
                                     <td>
                                         <input
-                                            type="number"
+                                            type="text"
+                                            inputMode="numeric"
                                             className="input-field"
-                                            value={year.adjustedIncome}
-                                            onChange={(e) => updateYear(year.id, 'adjustedIncome', e.target.value)}
-                                            placeholder="240000"
+                                            value={formatNumberWithCommas(year.adjustedIncome)}
+                                            onChange={(e) => {
+                                                const parsedValue = parseFormattedNumber(e.target.value);
+                                                if (/^\d*\.?\d*$/.test(parsedValue) || parsedValue === '') {
+                                                    updateYear(year.id, 'adjustedIncome', parsedValue);
+                                                }
+                                            }}
+                                            placeholder="240,000"
                                         />
                                     </td>
                                     <td>
@@ -553,10 +449,16 @@ const App = () => {
                                     </td>
                                     <td>
                                         <input
-                                            type="number"
+                                            type="text"
+                                            inputMode="numeric"
                                             className="input-field"
-                                            value={year.contribution}
-                                            onChange={(e) => updateYear(year.id, 'contribution', e.target.value)}
+                                            value={formatNumberWithCommas(year.contribution)}
+                                            onChange={(e) => {
+                                                const parsedValue = parseFormattedNumber(e.target.value);
+                                                if (/^\d*\.?\d*$/.test(parsedValue) || parsedValue === '') {
+                                                    updateYear(year.id, 'contribution', parsedValue);
+                                                }
+                                            }}
                                             placeholder="0"
                                         />
                                     </td>
